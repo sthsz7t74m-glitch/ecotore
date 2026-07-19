@@ -4,28 +4,37 @@ import {
   BookOpen,
   Bookmark,
   BookmarkCheck,
+  BookMarked,
   Check,
+  CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   CircleAlert,
   Clock3,
   Database,
   Download,
+  ExternalLink,
   Flame,
   Home,
+  Highlighter,
   Leaf,
   ListChecks,
+  NotebookPen,
   RefreshCcw,
   RotateCcw,
   Settings,
+  Search,
   Sparkles,
   Target,
   Upload,
   X,
+  XCircle,
 } from 'lucide-react'
 import { AdminPage } from './components/AdminPage'
 import { chapters } from './data/chapters'
 import { questions } from './data/questions'
+import { glossary, releaseHistory } from './data/lessons'
 import {
   chapterAccuracy,
   dueQuestions,
@@ -46,7 +55,7 @@ import {
   saveStudyState,
   toggleBookmark,
 } from './lib/storage'
-import type { Answer, Page, Question, StudyState } from './types'
+import type { Answer, LessonSection, Page, Question, StudyState } from './types'
 
 type QuizMode = 'practice' | 'mock'
 
@@ -57,7 +66,7 @@ interface QuizConfig {
   timeLimitMinutes?: number
 }
 
-const APP_VERSION = 'v1.0.0'
+const APP_VERSION = 'v2.0.0'
 
 const navItems: { id: Page; label: string; icon: typeof Home }[] = [
   { id: 'home', label: 'ホーム', icon: Home },
@@ -114,6 +123,10 @@ function App() {
     setStudyState((current) => toggleBookmark(current, questionId))
   }
 
+  const handleChapterScore = (chapterId: number, score: number) => {
+    setStudyState((current) => ({ ...current, chapterScores: { ...current.chapterScores, [String(chapterId)]: Math.max(current.chapterScores[String(chapterId)] ?? 0, score) } }))
+  }
+
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -122,7 +135,7 @@ function App() {
           <span><strong>エコトレ</strong><small>環境社会を、楽しく。</small></span>
         </button>
         <div className="top-actions">
-          <span className="prototype-badge">全520問・完成版</span>
+          <span className="prototype-badge">10章・68節・全520問</span>
           <span className="version-badge" title={`アプリバージョン ${APP_VERSION}`}>{APP_VERSION}</span>
           <button className="icon-button" onClick={() => navigate('settings')} aria-label="設定">
             <Settings size={21} />
@@ -139,6 +152,7 @@ function App() {
             onClose={() => setQuiz(null)}
             onRecord={handleRecord}
             onBookmark={handleBookmark}
+            onChapterScore={handleChapterScore}
           />
         ) : page === 'home' ? (
           <HomePage
@@ -153,9 +167,10 @@ function App() {
         ) : page === 'learn' ? (
           <LearnPage
             state={studyState}
+            onChange={setStudyState}
             selectedId={selectedChapterId}
             onSelect={setSelectedChapterId}
-            onStart={(id) => startQuiz(questions.filter((q) => q.chapterId === id), 'practice', `${chapters.find((c) => c.id === id)?.shortTitle} 確認問題`)}
+            onStart={(list, title) => startQuiz(list, 'practice', title)}
           />
         ) : page === 'practice' ? (
           <PracticePage onStart={startQuiz} />
@@ -270,56 +285,81 @@ function StatCard({ icon, label, value, color }: { icon: React.ReactNode; label:
   return <div className={`stat-card ${color}`}><span className="stat-icon">{icon}</span><span><small>{label}</small><strong>{value}</strong></span></div>
 }
 
-function LearnPage({ state, selectedId, onSelect, onStart }: { state: StudyState; selectedId: number | null; onSelect: (id: number | null) => void; onStart: (id: number) => void }) {
+function LearnPage({ state, onChange, selectedId, onSelect, onStart }: { state: StudyState; onChange: (state: StudyState) => void; selectedId: number | null; onSelect: (id: number | null) => void; onStart: (list: Question[], title: string) => void }) {
+  const [view, setView] = useState<'chapters' | 'terms'>('chapters')
+  const [search, setSearch] = useState('')
+  const [termIndex, setTermIndex] = useState(0)
   const chapter = chapters.find((item) => item.id === selectedId)
+
+  const toggleList = (key: 'lessonBookmarks' | 'lessonHighlights', id: string) => {
+    const list = state[key]
+    onChange({ ...state, [key]: list.includes(id) ? list.filter((item) => item !== id) : [...list, id] })
+  }
+
   if (chapter) {
     const chapterQuestions = questions.filter((q) => q.chapterId === chapter.id)
+    const completedCount = chapter.lessonSections.filter((section) => state.completedSections.includes(section.id)).length
+    const accuracy = state.chapterScores[String(chapter.id)] ?? null
+    const isComplete = completedCount === chapter.lessonSections.length && (accuracy ?? 0) >= 70
+    const readingClass = `reading-${state.reading.fontSize} spacing-${state.reading.lineSpacing}`
     return (
-      <div className="page-stack">
+      <div className={`page-stack ${readingClass}`}>
         <button className="back-button" onClick={() => onSelect(null)}><ChevronLeft /> 章一覧へ</button>
-        <section className="chapter-detail" style={{ '--chapter-color': chapter.color } as React.CSSProperties}>
-          <div className="chapter-detail-title"><span>{chapter.icon}</span><div><small>CHAPTER {chapter.id}</small><h1>{chapter.title}</h1></div></div>
+        <section className="chapter-detail enriched" style={{ '--chapter-color': chapter.color } as React.CSSProperties}>
+          <div className="chapter-detail-title"><span>{chapter.icon}</span><div><small>CHAPTER {chapter.id}・約{chapter.lessonSections.length >= 8 ? '20' : '15'}分</small><h1>{chapter.title}</h1></div>{isComplete && <em className="chapter-badge"><AwardIcon /> 修了</em>}</div>
           <p>{chapter.summary}</p>
-          <div className="keypoint-box">
-            <h3>この章のキーワード</h3>
-            <div>{chapter.keyPoints.map((point) => <span key={point}>{point}</span>)}</div>
+          <div className="lesson-progress-card"><div><strong>{completedCount}/{chapter.lessonSections.length}節を読了</strong><small>章末問題の正答率 {accuracy === null ? '未挑戦' : `${accuracy}%`}</small></div><div><span style={{ width: `${(completedCount / chapter.lessonSections.length) * 100}%` }} /></div><p>{isComplete ? '章バッジを獲得しました。次の章へ進みましょう。' : '全節を読み、章末問題で70％以上を取ると修了です。'}</p></div>
+          <div className="keypoint-box"><h3>この章のキーワード</h3><div>{chapter.keyPoints.map((point) => <span key={point}>{point}</span>)}</div></div>
+          <nav className="lesson-toc" aria-label="章内目次"><strong>この章の目次</strong>{chapter.lessonSections.map((section, index) => <a key={section.id} href={`#section-${section.id}`}><span>{state.completedSections.includes(section.id) ? <Check size={14} /> : index + 1}</span>{section.title}</a>)}</nav>
+          <div className="lesson-diagram" aria-label="この章の全体像">{chapter.diagram.map((item, index) => <div key={item.label}><span>{index + 1}</span><strong>{item.label}</strong><small>{item.detail}</small></div>)}</div>
+          <div className="lesson-copy enriched-copy">
+            {chapter.lessonSections.map((section, index) => {
+              const related = chapterQuestions.filter((q) => q.relatedTerms.some((term) => section.terms.some((sectionTerm) => term.includes(sectionTerm) || sectionTerm.includes(term))))
+              const sectionQuestions = (related.length ? related : chapterQuestions).slice(0, chapter.id === 2 || chapter.id === 6 || chapter.id === 7 ? 15 : 10)
+              return <LessonSectionCard key={section.id} section={section} index={index} state={state} onChange={onChange} onToggleBookmark={() => toggleList('lessonBookmarks', section.id)} onToggleHighlight={() => toggleList('lessonHighlights', section.id)} onStart={() => onStart(sectionQuestions, `${chapter.shortTitle}・${section.title}`)} />
+            })}
           </div>
-          <div className="lesson-diagram" aria-label="この章の全体像">
-            {chapter.diagram.map((item, index) => <div key={item.label}><span>{index + 1}</span><strong>{item.label}</strong><small>{item.detail}</small></div>)}
-          </div>
-          <div className="lesson-copy">
-            {chapter.lessonSections.map((section) => <section key={section.title}><h2>{section.title}</h2><p>{section.body}</p></section>)}
-          </div>
-          <button className="primary-button full-button" onClick={() => onStart(chapter.id)}>確認問題{chapterQuestions.length}問を始める <ChevronRight /></button>
-          <div className="question-preview-list">
-            {chapterQuestions.slice(0, 5).map((q, i) => <div key={q.id}><span>{i + 1}</span><p>{q.prompt}</p><small>{q.difficulty}</small></div>)}
-            <div className="question-more"><span>＋</span><p>ほか{Math.max(0, chapterQuestions.length - 5)}問を収録</p><small>全{chapterQuestions.length}問</small></div>
-          </div>
+          <section className="chapter-summary-panel"><h2>章のまとめ</h2><div className="summary-columns"><div><h3>重要用語</h3>{Array.from(new Set(chapter.lessonSections.flatMap((item) => item.terms))).map((term) => <span key={term}>{term}</span>)}</div><div><h3>よくある間違い</h3>{chapter.commonMistakes.map((item) => <p key={item}><XCircle size={16} />{item}</p>)}</div></div></section>
+          <button className="primary-button full-button" onClick={() => onStart(shuffled(chapterQuestions).slice(0, chapter.id === 2 || chapter.id === 6 || chapter.id === 7 || chapter.id === 10 ? 20 : 10), `${chapter.shortTitle} 章末問題`)}>章末問題を始める <ChevronRight size={19} /></button>
         </section>
       </div>
     )
   }
 
+  const query = search.trim().toLowerCase()
+  const searchResults = query ? chapters.flatMap((item) => item.lessonSections.filter((section) => [item.title, section.title, section.lead, ...section.body, ...section.terms].join(' ').toLowerCase().includes(query)).map((section) => ({ chapter: item, section }))) : []
+  const orderedTerms = [...glossary].sort((a, b) => (state.termMastery[a.id] ?? 0) - (state.termMastery[b.id] ?? 0))
+  const currentTerm = orderedTerms[termIndex % orderedTerms.length]
+
   return (
     <div className="page-stack">
-      <PageTitle eyebrow="LEARN" title="分野別に学ぶ" description="10章の要点と図解を読み、全520問の確認問題へ進みます。" />
-      <div className="chapter-grid">
-        {chapters.map((item) => {
-          const accuracy = chapterAccuracy(state, item.id, questions)
-          return (
-            <button key={item.id} className="chapter-card" onClick={() => onSelect(item.id)} style={{ '--chapter-color': item.color } as React.CSSProperties}>
-              <span className="chapter-number">{String(item.id).padStart(2, '0')}</span>
-              <span className="chapter-emoji">{item.icon}</span>
-              <strong>{item.shortTitle}</strong>
-              <small>{item.keyPoints.join('・')}</small>
-              <div className="chapter-progress"><span style={{ width: `${accuracy ?? 0}%` }} /><em>{accuracy === null ? '未学習' : `正答率 ${accuracy}%`}</em></div>
-            </button>
-          )
-        })}
-      </div>
+      <PageTitle eyebrow="LEARN" title="教材で学ぶ" description="全10章・68節。基礎から具体例、試験での問われ方まで学べます。" />
+      <div className="learn-tools"><div className="segmented"><button className={view === 'chapters' ? 'active' : ''} onClick={() => setView('chapters')}><BookOpen size={17} />章別教材</button><button className={view === 'terms' ? 'active' : ''} onClick={() => setView('terms')}><BookMarked size={17} />用語カード</button></div><label className="lesson-search"><Search size={18} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="本文・用語・制度名を検索" /></label></div>
+      {query ? <section className="search-results"><div className="section-heading"><div><span className="eyebrow">SEARCH</span><h2>「{search}」の検索結果</h2></div><em>{searchResults.length}件</em></div>{searchResults.length ? searchResults.map(({ chapter: item, section }) => <button key={section.id} onClick={() => { onSelect(item.id); window.setTimeout(() => document.getElementById(`section-${section.id}`)?.scrollIntoView(), 80) }}><span>{item.icon}</span><div><small>{item.shortTitle}・{section.importance}</small><strong>{section.title}</strong><p>{section.lead}</p></div><ChevronRight /></button>) : <EmptyState icon="🔎" title="見つかりませんでした" text="別の言葉や短い単語で検索してください。" />}</section> : view === 'terms' ? (
+        <section className="term-study"><div className="term-study-heading"><div><span className="eyebrow">SPACED REVIEW</span><h2>重要用語カード</h2></div><span>{termIndex + 1}/{orderedTerms.length}</span></div><div className="term-card"><small>CHAPTER {currentTerm.chapterId}・{currentTerm.importance}</small><h2>{currentTerm.term}</h2><p>{currentTerm.definition}</p><div><button onClick={() => { onChange({ ...state, termMastery: { ...state.termMastery, [currentTerm.id]: 0 } }); setTermIndex((v) => v + 1) }}>まだ</button><button onClick={() => { onChange({ ...state, termMastery: { ...state.termMastery, [currentTerm.id]: 1 } }); setTermIndex((v) => v + 1) }}>あいまい</button><button onClick={() => { onChange({ ...state, termMastery: { ...state.termMastery, [currentTerm.id]: 2 } }); setTermIndex((v) => v + 1) }}>覚えた</button></div></div><p className="term-note">苦手・未確認の用語から優先して表示します。理解度はこの端末に保存されます。</p></section>
+      ) : <><div className="recommended-route"><Sparkles size={18} /><div><strong>初心者おすすめ順</strong><p>01 基礎 → 02 気候 → 03 エネルギー → 06 資源循環 → 07 法令 → その他</p></div></div><div className="chapter-grid">{chapters.map((item) => { const accuracy = state.chapterScores[String(item.id)] ?? null; const completed = item.lessonSections.filter((section) => state.completedSections.includes(section.id)).length; const done = completed === item.lessonSections.length && (accuracy ?? 0) >= 70; return <button key={item.id} className="chapter-card" onClick={() => onSelect(item.id)} style={{ '--chapter-color': item.color } as React.CSSProperties}><span className="chapter-number">{String(item.id).padStart(2, '0')}</span>{done && <span className="complete-mini"><Check /></span>}<span className="chapter-emoji">{item.icon}</span><strong>{item.shortTitle}</strong><small>{item.lessonSections.length}節・約{item.lessonSections.length >= 8 ? '20' : '15'}分</small><div className="chapter-progress"><span style={{ width: `${(completed / item.lessonSections.length) * 100}%` }} /><em>{completed ? `${completed}/${item.lessonSections.length}節` : '未学習'}{accuracy !== null ? `・章末${accuracy}%` : ''}</em></div></button> })}</div></>}
     </div>
   )
 }
+
+function LessonSectionCard({ section, index, state, onChange, onToggleBookmark, onToggleHighlight, onStart }: { section: LessonSection; index: number; state: StudyState; onChange: (state: StudyState) => void; onToggleBookmark: () => void; onToggleHighlight: () => void; onStart: () => void }) {
+  const [answer, setAnswer] = useState<boolean | null>(null)
+  const complete = state.completedSections.includes(section.id)
+  const checkCorrect = answer !== null && answer === section.check.answer
+  const markComplete = () => onChange({ ...state, completedSections: complete ? state.completedSections.filter((id) => id !== section.id) : [...state.completedSections, section.id] })
+  const submitCheck = (value: boolean) => {
+    const correct = value === section.check.answer
+    setAnswer(value)
+    onChange({
+      ...state,
+      sectionChecks: { ...state.sectionChecks, [section.id]: correct },
+      lessonHighlights: correct || state.lessonHighlights.includes(section.id) ? state.lessonHighlights : [...state.lessonHighlights, section.id],
+    })
+  }
+  return <section id={`section-${section.id}`} className={`lesson-section-card ${state.lessonHighlights.includes(section.id) ? 'highlighted' : ''}`}><div className="lesson-section-heading"><span>{index + 1}</span><div><div className="importance-row"><em className={`importance ${section.importance}`}>{section.importance}</em>{section.detail?.startsWith('要確認') && <em className="stale-warning">要確認</em>}</div><h2>{section.title}</h2><p>{section.lead}</p></div><div className="lesson-icon-actions"><button className={state.lessonHighlights.includes(section.id) ? 'active' : ''} onClick={onToggleHighlight} title="重要箇所としてマーク"><Highlighter /></button><button className={state.lessonBookmarks.includes(section.id) ? 'active' : ''} onClick={onToggleBookmark} title="しおり"><Bookmark /></button></div></div><div className="lesson-body">{section.body.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}</div><div className="example-box"><strong>具体例</strong><p>{section.example}</p></div><div className="exam-tip"><Target size={18} /><div><strong>試験での問われ方</strong><p>{section.examTip}</p></div><button onClick={onStart}>関連問題へ <ChevronRight size={15} /></button></div>{section.detail && <details className="more-detail"><summary>もっと詳しく <ChevronDown size={16} /></summary><p>{section.detail}</p></details>}<div className="mini-check"><strong>○×チェック</strong><p>{section.check.prompt}</p><div><button className={answer === true ? 'selected' : ''} onClick={() => submitCheck(true)}>○ 正しい</button><button className={answer === false ? 'selected' : ''} onClick={() => submitCheck(false)}>× 誤り</button></div>{answer !== null && <aside className={checkCorrect ? 'correct' : 'wrong'}>{checkCorrect ? <CheckCircle2 /> : <XCircle />}<p><strong>{checkCorrect ? '正解です' : 'もう一度確認しましょう'}</strong>{section.check.explanation}</p>{!checkCorrect && <a href={`#section-${section.id}`}>解説へ戻る</a>}</aside>}</div><div className="lesson-note"><NotebookPen size={17} /><textarea value={state.lessonNotes[section.id] ?? ''} onChange={(e) => onChange({ ...state, lessonNotes: { ...state.lessonNotes, [section.id]: e.target.value } })} placeholder="自分用メモ（この端末だけに保存）" /></div><footer><a href={section.source.url} target="_blank" rel="noreferrer"><ExternalLink size={13} />{section.source.title}</a><span>確認日 {section.source.checkedAt}</span><button className={complete ? 'complete' : ''} onClick={markComplete}>{complete ? <Check /> : null}{complete ? '読了済み' : 'この節を読了にする'}</button></footer></section>
+}
+
+function AwardIcon() { return <span aria-hidden="true">🏅</span> }
 
 function PracticePage({ onStart }: { onStart: (list: Question[], mode: QuizMode, title: string) => void }) {
   const [chapterId, setChapterId] = useState('all')
@@ -425,21 +465,24 @@ function SettingsPage({ state, onChange, onAdmin }: { state: StudyState; onChang
   }
   return (
     <div className="page-stack">
-      <PageTitle eyebrow="SETTINGS" title="設定" description="今日の問題数と、この端末の学習データを管理します。" />
+      <PageTitle eyebrow="SETTINGS" title="設定" description="教材の読みやすさと、この端末の学習データを管理します。" />
       <section className="settings-card"><h2>今日の問題</h2><label><span><strong>出題数</strong><small>ホーム画面から始める問題数</small></span><select value={state.dailyCount} onChange={(e) => onChange({ ...state, dailyCount: Number(e.target.value) })}>{[5, 10, 20, 30].map((n) => <option key={n} value={n}>{n}問</option>)}</select></label></section>
+      <section className="settings-card reading-settings"><h2>教材の表示</h2><label><span><strong>文字サイズ</strong><small>教材本文の大きさ</small></span><select value={state.reading.fontSize} onChange={(e) => onChange({ ...state, reading: { ...state.reading, fontSize: e.target.value as StudyState['reading']['fontSize'] } })}><option value="small">小</option><option value="medium">標準</option><option value="large">大</option></select></label><label><span><strong>行間</strong><small>長文の読みやすさ</small></span><select value={state.reading.lineSpacing} onChange={(e) => onChange({ ...state, reading: { ...state.reading, lineSpacing: e.target.value as StudyState['reading']['lineSpacing'] } })}><option value="normal">標準</option><option value="wide">広め</option></select></label><label><span><strong>ふりがな補助</strong><small>難しい用語の読みを補助（対応語から順次表示）</small></span><input className="toggle-input" type="checkbox" checked={state.reading.furigana} onChange={(e) => onChange({ ...state, reading: { ...state.reading, furigana: e.target.checked } })} /></label></section>
       <section className="settings-card"><h2>学習データ</h2><button onClick={() => exportStudyState(state)}><Download /> <span><strong>バックアップを書き出す</strong><small>JSONファイルとして保存</small></span><ChevronRight /></button><button onClick={() => inputRef.current?.click()}><Upload /> <span><strong>バックアップを読み込む</strong><small>別端末の履歴を取り込む</small></span><ChevronRight /></button><input ref={inputRef} type="file" accept="application/json" hidden onChange={(e) => importFile(e.target.files?.[0])} /><button className="danger-action" onClick={reset}><RefreshCcw /> <span><strong>学習履歴をリセット</strong><small>この操作は取り消せません</small></span><ChevronRight /></button></section>
       <section className="settings-card"><h2>問題管理</h2><button onClick={onAdmin}><Database /> <span><strong>問題エディターを開く</strong><small>CSV入出力・編集・複製・検証・公開JSON</small></span><ChevronRight /></button></section>
-      <section className="about-card"><Leaf /><div><strong>エコトレ 完成版 {APP_VERSION}</strong><p>全520問を収録。学習履歴と編集データは外部へ送信されず、このブラウザ内に保存されます。</p></div></section>
+      <section className="release-card"><div className="section-heading"><div><span className="eyebrow">CHANGELOG</span><h2>更新履歴</h2></div></div>{releaseHistory.map((release) => <details key={release.version} open={release.version === APP_VERSION}><summary><span><strong>{release.version}　{release.title}</strong><small>{release.date}</small></span><ChevronDown /></summary><ul>{release.items.map((item) => <li key={item}>{item}</li>)}</ul></details>)}</section>
+      <section className="about-card"><Leaf /><div><strong>エコトレ 教材増強版 {APP_VERSION}</strong><p>全10章・68節・520問を収録。学習履歴、メモ、マーカーは外部へ送信されず、このブラウザ内に保存されます。</p></div></section>
     </div>
   )
 }
 
-function QuizSession({ config, studyState, onClose, onRecord, onBookmark }: { config: QuizConfig; studyState: StudyState; onClose: () => void; onRecord: (id: string, correct: boolean) => void; onBookmark: (id: string) => void }) {
+function QuizSession({ config, studyState, onClose, onRecord, onBookmark, onChapterScore }: { config: QuizConfig; studyState: StudyState; onClose: () => void; onRecord: (id: string, correct: boolean) => void; onBookmark: (id: string) => void; onChapterScore: (chapterId: number, score: number) => void }) {
   const [index, setIndex] = useState(0)
   const [answers, setAnswers] = useState<Record<string, Answer>>({})
   const [submitted, setSubmitted] = useState(false)
   const [finished, setFinished] = useState(false)
   const [recordedMock, setRecordedMock] = useState(false)
+  const [recordedChapterScore, setRecordedChapterScore] = useState(false)
   const [reviewMode, setReviewMode] = useState(false)
   const [remainingSeconds, setRemainingSeconds] = useState(() => (config.timeLimitMinutes ?? 0) * 60)
   const question = config.questions[index]
@@ -460,6 +503,13 @@ function QuizSession({ config, studyState, onClose, onRecord, onBookmark }: { co
     config.questions.forEach((item) => onRecord(item.id, isAnswerCorrect(item, answers[item.id] ?? emptyAnswerFor(item))))
     setRecordedMock(true)
   }, [answers, config.mode, config.questions, finished, onRecord, recordedMock])
+
+  useEffect(() => {
+    if (!finished || recordedChapterScore || !config.title.includes('章末問題') || !config.questions.length) return
+    const score = Math.round((config.questions.filter((item) => isAnswerCorrect(item, answers[item.id] ?? emptyAnswerFor(item))).length / config.questions.length) * 100)
+    onChapterScore(config.questions[0].chapterId, score)
+    setRecordedChapterScore(true)
+  }, [answers, config.questions, config.title, finished, onChapterScore, recordedChapterScore])
 
   const updateAnswer = (next: Answer) => setAnswers((current) => ({ ...current, [question.id]: next }))
 

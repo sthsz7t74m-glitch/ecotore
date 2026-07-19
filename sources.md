@@ -1,4 +1,4 @@
-# エコトレ（仮称）一次情報整理
+# エコトレ v2.0.0 一次情報整理
 
 確認日: 2026-07-19
 
@@ -6,7 +6,7 @@
 
 | 章 | 主な一次情報 | 完成版問題数 |
 |---|---|---|
-| 環境の基礎 | [環境省・環境白書 SDGs](https://www.env.go.jp/policy/hakusyo/h29/html/hj17010101.html)、[第五次環境基本計画](https://www.env.go.jp/policy/hakusyo/r01/html/hj19010102.html) | 40 |
+| 環境の基礎 | [環境省・環境白書 SDGs](https://www.env.go.jp/policy/hakusyo/h29/html/hj17010101.html)、[第六次環境基本計画](https://www.env.go.jp/press/press_03210.html) | 40 |
 | 気候変動 | [環境省・カーボンニュートラル](https://ondankataisaku.env.go.jp/carbon_neutral/about/)、[A-PLAT](https://adaptation-platform.nies.go.jp/climate_change_adapt/)、[UNFCCC・パリ協定](https://unfccc.int/process-and-meetings/the-paris-agreement) | 70 |
 | エネルギー | [資源エネルギー庁・再エネ](https://www.enecho.meti.go.jp/category/saving_and_new/saiene/renewable/outline/index.html)、[第7次エネルギー基本計画](https://www.enecho.meti.go.jp/category/others/basic_plan/) | 55 |
 | 生物多様性 | [生物多様性センター](https://www.biodic.go.jp/biodiversity/)、[生物多様性条約](https://www.biodic.go.jp/biolaw/jo_hon.html) | 55 |

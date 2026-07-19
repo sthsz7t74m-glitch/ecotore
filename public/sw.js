@@ -1,4 +1,4 @@
-const CACHE = 'ecotore-v1.0.0'
+const CACHE = 'ecotore-v2.0.0'
 const CORE = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png']
 
 self.addEventListener('install', (event) => {

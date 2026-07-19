@@ -1,7 +1,7 @@
 {
   "name": "エコトレ - 環境社会学習",
   "short_name": "エコトレ",
-  "description": "環境社会を体系的に学べる、全520問の非公式学習アプリ",
+  "description": "環境社会を基礎から学べる、全10章・68節・520問の非公式学習アプリ",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

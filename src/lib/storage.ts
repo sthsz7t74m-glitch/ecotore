@@ -8,6 +8,14 @@ export const defaultStudyState: StudyState = {
   currentStreak: 0,
   bestStreak: 0,
   dailyCount: 10,
+  completedSections: [],
+  sectionChecks: {},
+  lessonBookmarks: [],
+  lessonHighlights: [],
+  lessonNotes: {},
+  termMastery: {},
+  chapterScores: {},
+  reading: { fontSize: 'medium', lineSpacing: 'normal', furigana: false },
 }
 
 const localDate = (date = new Date()) => {
@@ -33,6 +41,14 @@ export function loadStudyState(): StudyState {
       ...parsed,
       attempts: parsed.attempts ?? {},
       studyDates: parsed.studyDates ?? [],
+      completedSections: parsed.completedSections ?? [],
+      sectionChecks: parsed.sectionChecks ?? {},
+      lessonBookmarks: parsed.lessonBookmarks ?? [],
+      lessonHighlights: parsed.lessonHighlights ?? [],
+      lessonNotes: parsed.lessonNotes ?? {},
+      termMastery: parsed.termMastery ?? {},
+      chapterScores: parsed.chapterScores ?? {},
+      reading: { ...defaultStudyState.reading, ...(parsed.reading ?? {}) },
     }
   } catch {
     return defaultStudyState
