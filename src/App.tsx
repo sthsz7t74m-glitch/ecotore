@@ -8,6 +8,8 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleAlert,
+  Clock3,
+  Database,
   Download,
   Flame,
   Home,
@@ -21,6 +23,7 @@ import {
   Upload,
   X,
 } from 'lucide-react'
+import { AdminPage } from './components/AdminPage'
 import { chapters } from './data/chapters'
 import { questions } from './data/questions'
 import {
@@ -51,7 +54,10 @@ interface QuizConfig {
   title: string
   mode: QuizMode
   questions: Question[]
+  timeLimitMinutes?: number
 }
+
+const APP_VERSION = 'v1.0.0'
 
 const navItems: { id: Page; label: string; icon: typeof Home }[] = [
   { id: 'home', label: 'ホーム', icon: Home },
@@ -87,9 +93,9 @@ function App() {
   const due = useMemo(() => dueQuestions(studyState, questions), [studyState])
   const weakIds = useMemo(() => weakChapterIds(studyState, questions), [studyState])
 
-  const startQuiz = (list: Question[], mode: QuizMode, title: string) => {
+  const startQuiz = (list: Question[], mode: QuizMode, title: string, timeLimitMinutes?: number) => {
     if (!list.length) return
-    setQuiz({ title, mode, questions: list })
+    setQuiz({ title, mode, questions: list, timeLimitMinutes })
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -116,7 +122,8 @@ function App() {
           <span><strong>エコトレ</strong><small>環境社会を、楽しく。</small></span>
         </button>
         <div className="top-actions">
-          <span className="prototype-badge">30問試作版</span>
+          <span className="prototype-badge">全520問・完成版</span>
+          <span className="version-badge" title={`アプリバージョン ${APP_VERSION}`}>{APP_VERSION}</span>
           <button className="icon-button" onClick={() => navigate('settings')} aria-label="設定">
             <Settings size={21} />
           </button>
@@ -141,7 +148,7 @@ function App() {
             weakIds={weakIds}
             onNavigate={navigate}
             onDaily={() => startQuiz(selectDailyQuestions(studyState, questions, studyState.dailyCount), 'practice', `今日の${studyState.dailyCount}問`)}
-            onMock={() => startQuiz(shuffled(questions).slice(0, 10), 'mock', '10問ミニ模試')}
+            onMock={() => navigate('mock')}
           />
         ) : page === 'learn' ? (
           <LearnPage
@@ -152,12 +159,16 @@ function App() {
           />
         ) : page === 'practice' ? (
           <PracticePage onStart={startQuiz} />
+        ) : page === 'mock' ? (
+          <MockPage state={studyState} weakIds={weakIds} onStart={startQuiz} />
         ) : page === 'review' ? (
           <ReviewPage state={studyState} due={due} onStart={startQuiz} />
         ) : page === 'stats' ? (
           <StatsPage state={studyState} />
+        ) : page === 'admin' ? (
+          <AdminPage onBack={() => navigate('settings')} />
         ) : (
-          <SettingsPage state={studyState} onChange={setStudyState} />
+          <SettingsPage state={studyState} onChange={setStudyState} onAdmin={() => navigate('admin')} />
         )}
       </main>
 
@@ -233,7 +244,7 @@ function HomePage({
             <span className="action-icon"><ListChecks /></span><span><strong>問題演習</strong><small>分野と問題数を選ぶ</small></span><ChevronRight />
           </button>
           <button className="action-card mock" onClick={onMock}>
-            <span className="action-icon"><Target /></span><span><strong>10問ミニ模試</strong><small>最後にまとめて採点</small></span><ChevronRight />
+            <span className="action-icon"><Target /></span><span><strong>模擬試験</strong><small>100問・90分／短縮模試</small></span><ChevronRight />
           </button>
           <button className="action-card review" onClick={() => onNavigate('review')}>
             <span className="action-icon"><RotateCcw /></span><span><strong>復習する</strong><small>{dueCount ? `${dueCount}問が復習待ち` : '復習待ちはありません'}</small></span><ChevronRight />
@@ -250,7 +261,7 @@ function HomePage({
         </div>
       </section>
 
-      <p className="disclaimer">本サイトは非公式の学習用試作版です。東京商工会議所その他の団体による公認・提携サービスではありません。</p>
+      <p className="disclaimer">本サイトは独自作成の非公式学習アプリです。東京商工会議所その他の団体による公認・提携サービスではありません。</p>
     </div>
   )
 }
@@ -273,13 +284,16 @@ function LearnPage({ state, selectedId, onSelect, onStart }: { state: StudyState
             <h3>この章のキーワード</h3>
             <div>{chapter.keyPoints.map((point) => <span key={point}>{point}</span>)}</div>
           </div>
-          <div className="lesson-copy">
-            <h2>まず押さえるポイント</h2>
-            <p>{chapter.summary} 試作版では、この章の重要概念を3問で確認します。答えを選んだ後に、正解の理由だけでなく各選択肢の違いも確認してください。</p>
+          <div className="lesson-diagram" aria-label="この章の全体像">
+            {chapter.diagram.map((item, index) => <div key={item.label}><span>{index + 1}</span><strong>{item.label}</strong><small>{item.detail}</small></div>)}
           </div>
-          <button className="primary-button full-button" onClick={() => onStart(chapter.id)}>確認問題3問を始める <ChevronRight /></button>
+          <div className="lesson-copy">
+            {chapter.lessonSections.map((section) => <section key={section.title}><h2>{section.title}</h2><p>{section.body}</p></section>)}
+          </div>
+          <button className="primary-button full-button" onClick={() => onStart(chapter.id)}>確認問題{chapterQuestions.length}問を始める <ChevronRight /></button>
           <div className="question-preview-list">
-            {chapterQuestions.map((q, i) => <div key={q.id}><span>{i + 1}</span><p>{q.prompt}</p><small>{q.difficulty}</small></div>)}
+            {chapterQuestions.slice(0, 5).map((q, i) => <div key={q.id}><span>{i + 1}</span><p>{q.prompt}</p><small>{q.difficulty}</small></div>)}
+            <div className="question-more"><span>＋</span><p>ほか{Math.max(0, chapterQuestions.length - 5)}問を収録</p><small>全{chapterQuestions.length}問</small></div>
           </div>
         </section>
       </div>
@@ -288,7 +302,7 @@ function LearnPage({ state, selectedId, onSelect, onStart }: { state: StudyState
 
   return (
     <div className="page-stack">
-      <PageTitle eyebrow="LEARN" title="分野別に学ぶ" description="10章の要点を読み、各章3問の確認問題へ進みます。" />
+      <PageTitle eyebrow="LEARN" title="分野別に学ぶ" description="10章の要点と図解を読み、全520問の確認問題へ進みます。" />
       <div className="chapter-grid">
         {chapters.map((item) => {
           const accuracy = chapterAccuracy(state, item.id, questions)
@@ -309,9 +323,16 @@ function LearnPage({ state, selectedId, onSelect, onStart }: { state: StudyState
 
 function PracticePage({ onStart }: { onStart: (list: Question[], mode: QuizMode, title: string) => void }) {
   const [chapterId, setChapterId] = useState('all')
+  const [difficulty, setDifficulty] = useState('all')
+  const [questionType, setQuestionType] = useState('all')
   const [count, setCount] = useState(10)
   const [mode, setMode] = useState<QuizMode>('practice')
-  const available = chapterId === 'all' ? questions : questions.filter((q) => q.chapterId === Number(chapterId))
+  const available = questions.filter((question) => {
+    if (chapterId !== 'all' && question.chapterId !== Number(chapterId)) return false
+    if (difficulty !== 'all' && question.difficulty !== difficulty) return false
+    if (questionType !== 'all' && question.type !== questionType) return false
+    return true
+  })
   const actualCount = Math.min(count, available.length)
   const selectedChapter = chapters.find((c) => c.id === Number(chapterId))
   return (
@@ -319,11 +340,36 @@ function PracticePage({ onStart }: { onStart: (list: Question[], mode: QuizMode,
       <PageTitle eyebrow="PRACTICE" title="問題演習" description="分野・問題数・学習方法を選んで始めます。" />
       <section className="form-card">
         <label><span>出題分野</span><select value={chapterId} onChange={(e) => setChapterId(e.target.value)}><option value="all">全10分野</option>{chapters.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}</select></label>
-        <label><span>問題数</span><select value={count} onChange={(e) => setCount(Number(e.target.value))}>{[3, 5, 10, 20, 30].map((n) => <option key={n} value={n}>{n}問</option>)}</select></label>
+        <div className="filter-grid">
+          <label><span>難易度</span><select value={difficulty} onChange={(e) => setDifficulty(e.target.value)}><option value="all">すべて</option>{(['基礎', '標準', '応用', '時事'] as const).map((item) => <option key={item}>{item}</option>)}</select></label>
+          <label><span>問題形式</span><select value={questionType} onChange={(e) => setQuestionType(e.target.value)}><option value="all">すべて</option><option value="single">単一選択</option><option value="multiple">複数選択</option><option value="trueFalse">○×</option><option value="fill">穴埋め</option><option value="matching">用語対応</option></select></label>
+          <label><span>問題数</span><select value={count} onChange={(e) => setCount(Number(e.target.value))}>{[5, 10, 20, 30, 50, 100].map((n) => <option key={n} value={n}>{n}問</option>)}</select></label>
+        </div>
         <fieldset><legend>回答後の表示</legend><button className={mode === 'practice' ? 'selected' : ''} onClick={() => setMode('practice')}><Check /> 1問ごとに解説</button><button className={mode === 'mock' ? 'selected' : ''} onClick={() => setMode('mock')}><Target /> 最後にまとめて採点</button></fieldset>
         <div className="start-summary"><span>{selectedChapter?.icon ?? '🌈'}</span><div><strong>{selectedChapter?.shortTitle ?? '全分野'}から{actualCount}問</strong><small>{mode === 'practice' ? '回答直後に詳しい解説を表示します' : 'すべて回答した後に採点します'}</small></div></div>
-        <button className="primary-button full-button" onClick={() => onStart(shuffled(available).slice(0, actualCount), mode, `${selectedChapter?.shortTitle ?? '全分野'} ${actualCount}問`)}>演習を始める <ChevronRight /></button>
+        <button className="primary-button full-button" disabled={!available.length} onClick={() => onStart(shuffled(available).slice(0, actualCount), mode, `${selectedChapter?.shortTitle ?? '全分野'} ${actualCount}問`)}>{available.length ? '演習を始める' : '条件に合う問題がありません'} <ChevronRight /></button>
       </section>
+    </div>
+  )
+}
+
+function MockPage({ state, weakIds, onStart }: { state: StudyState; weakIds: number[]; onStart: (list: Question[], mode: QuizMode, title: string, timeLimitMinutes?: number) => void }) {
+  const mockEligible = questions.filter((question) => ['single', 'multiple', 'trueFalse'].includes(question.type))
+  const weakQuestions = weakIds.length ? mockEligible.filter((question) => weakIds.slice(0, 3).includes(question.chapterId)) : mockEligible
+  const currentQuestions = mockEligible.filter((question) => question.difficulty === '時事' || question.chapterId === 10)
+  const answered = Object.keys(state.attempts).length
+  const cards = [
+    { icon: '🏁', title: '本番想定フル模試', text: '100問・90分・70点以上で合格', count: 100, minutes: 90, pool: mockEligible },
+    { icon: '⚡', title: '10問ミニ模試', text: '短時間で全分野を確認', count: 10, minutes: 12, pool: mockEligible },
+    { icon: '📝', title: '30問模試', text: '分野横断で実力を測定', count: 30, minutes: 30, pool: mockEligible },
+    { icon: '🎯', title: '苦手分野模試', text: answered ? '正答率の低い3分野から出題' : '学習後に苦手分野へ最適化', count: 30, minutes: 30, pool: weakQuestions },
+    { icon: '📰', title: '環境時事模試', text: '政策更新と分野横断問題', count: Math.min(30, currentQuestions.length), minutes: 30, pool: currentQuestions },
+  ]
+  return (
+    <div className="page-stack">
+      <PageTitle eyebrow="MOCK EXAM" title="模擬試験" description="模試中は正解を表示せず、終了後に採点と全問解説を確認できます。" />
+      <div className="mock-grid">{cards.map((card) => <button key={card.title} className="mock-card" onClick={() => onStart(shuffled(card.pool).slice(0, card.count), 'mock', card.title, card.minutes)}><span>{card.icon}</span><div><strong>{card.title}</strong><p>{card.text}</p><small><Clock3 size={14} /> 制限時間 {card.minutes}分</small></div><ChevronRight /></button>)}</div>
+      <div className="mock-note"><Target /><div><strong>採点基準</strong><p>100点満点換算で70点以上を合格表示します。実際の試験は多肢選択式・90分です。</p></div></div>
     </div>
   )
 }
@@ -366,7 +412,7 @@ function StatsPage({ state }: { state: StudyState }) {
   )
 }
 
-function SettingsPage({ state, onChange }: { state: StudyState; onChange: (state: StudyState) => void }) {
+function SettingsPage({ state, onChange, onAdmin }: { state: StudyState; onChange: (state: StudyState) => void; onAdmin: () => void }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const importFile = async (file?: File) => {
     if (!file) return
@@ -382,7 +428,8 @@ function SettingsPage({ state, onChange }: { state: StudyState; onChange: (state
       <PageTitle eyebrow="SETTINGS" title="設定" description="今日の問題数と、この端末の学習データを管理します。" />
       <section className="settings-card"><h2>今日の問題</h2><label><span><strong>出題数</strong><small>ホーム画面から始める問題数</small></span><select value={state.dailyCount} onChange={(e) => onChange({ ...state, dailyCount: Number(e.target.value) })}>{[5, 10, 20, 30].map((n) => <option key={n} value={n}>{n}問</option>)}</select></label></section>
       <section className="settings-card"><h2>学習データ</h2><button onClick={() => exportStudyState(state)}><Download /> <span><strong>バックアップを書き出す</strong><small>JSONファイルとして保存</small></span><ChevronRight /></button><button onClick={() => inputRef.current?.click()}><Upload /> <span><strong>バックアップを読み込む</strong><small>別端末の履歴を取り込む</small></span><ChevronRight /></button><input ref={inputRef} type="file" accept="application/json" hidden onChange={(e) => importFile(e.target.files?.[0])} /><button className="danger-action" onClick={reset}><RefreshCcw /> <span><strong>学習履歴をリセット</strong><small>この操作は取り消せません</small></span><ChevronRight /></button></section>
-      <section className="about-card"><Leaf /><div><strong>エコトレ 30問試作版</strong><p>学習履歴は外部へ送信されず、このブラウザ内に保存されます。</p></div></section>
+      <section className="settings-card"><h2>問題管理</h2><button onClick={onAdmin}><Database /> <span><strong>問題エディターを開く</strong><small>CSV入出力・編集・複製・検証・公開JSON</small></span><ChevronRight /></button></section>
+      <section className="about-card"><Leaf /><div><strong>エコトレ 完成版 {APP_VERSION}</strong><p>全520問を収録。学習履歴と編集データは外部へ送信されず、このブラウザ内に保存されます。</p></div></section>
     </div>
   )
 }
@@ -394,9 +441,25 @@ function QuizSession({ config, studyState, onClose, onRecord, onBookmark }: { co
   const [finished, setFinished] = useState(false)
   const [recordedMock, setRecordedMock] = useState(false)
   const [reviewMode, setReviewMode] = useState(false)
+  const [remainingSeconds, setRemainingSeconds] = useState(() => (config.timeLimitMinutes ?? 0) * 60)
   const question = config.questions[index]
   const answer = answers[question.id] ?? emptyAnswerFor(question)
   const correct = submitted ? isAnswerCorrect(question, answer) : false
+
+  useEffect(() => {
+    if (config.mode !== 'mock' || !config.timeLimitMinutes || finished || reviewMode) return
+    const timer = window.setInterval(() => setRemainingSeconds((current) => {
+      if (current <= 1) { window.clearInterval(timer); setFinished(true); return 0 }
+      return current - 1
+    }), 1000)
+    return () => window.clearInterval(timer)
+  }, [config.mode, config.timeLimitMinutes, finished, reviewMode])
+
+  useEffect(() => {
+    if (!finished || config.mode !== 'mock' || recordedMock) return
+    config.questions.forEach((item) => onRecord(item.id, isAnswerCorrect(item, answers[item.id] ?? emptyAnswerFor(item))))
+    setRecordedMock(true)
+  }, [answers, config.mode, config.questions, finished, onRecord, recordedMock])
 
   const updateAnswer = (next: Answer) => setAnswers((current) => ({ ...current, [question.id]: next }))
 
@@ -420,19 +483,16 @@ function QuizSession({ config, studyState, onClose, onRecord, onBookmark }: { co
   }
 
   const finishMock = () => {
-    if (!recordedMock) {
-      config.questions.forEach((item) => onRecord(item.id, isAnswerCorrect(item, answers[item.id] ?? emptyAnswerFor(item))))
-      setRecordedMock(true)
-    }
     setFinished(true)
   }
 
   if (finished) {
     const results = config.questions.map((item) => ({ question: item, correct: isAnswerCorrect(item, answers[item.id] ?? emptyAnswerFor(item)) }))
     const score = results.filter((item) => item.correct).length
+    const scorePercent = Math.round((score / results.length) * 100)
     return (
       <div className="quiz-results page-stack">
-        <section className="result-hero"><span>{score / results.length >= 0.7 ? '🎉' : '🌱'}</span><small>{config.title}</small><h1>{score}<em> / {results.length}問</em></h1><p>{score / results.length >= 0.7 ? '70％以上達成！よくできました。' : '間違えた問題を解説で確認しましょう。'}</p></section>
+        <section className="result-hero"><span>{scorePercent >= 70 ? '🎉' : '🌱'}</span><small>{config.title}</small><h1>{scorePercent}<em> / 100点</em></h1><p>{score} / {results.length}問正解・{scorePercent >= 70 ? '合格ライン達成！' : '70点までの差を復習しましょう。'}</p></section>
         <div className="result-list">{results.map((item, i) => <div key={item.question.id} className={item.correct ? 'correct' : 'wrong'}><span>{item.correct ? <Check /> : <X />}</span><div><small>問題{i + 1}・{item.question.id}</small><p>{item.question.prompt}</p></div></div>)}</div>
         <div className="result-actions"><button className="secondary-button" onClick={() => { setReviewMode(true); setIndex(0); setFinished(false); setSubmitted(true) }}>解説を確認する</button><button className="primary-button" onClick={onClose}>ホームへ戻る</button></div>
       </div>
@@ -440,9 +500,10 @@ function QuizSession({ config, studyState, onClose, onRecord, onBookmark }: { co
   }
 
   const bookmarked = studyState.attempts[question.id]?.bookmarked
+  const timerText = `${String(Math.floor(remainingSeconds / 60)).padStart(2, '0')}:${String(remainingSeconds % 60).padStart(2, '0')}`
   return (
     <div className="quiz-page">
-      <div className="quiz-header"><button className="icon-button" onClick={onClose}><X /></button><div><strong>{config.title}</strong><span><i style={{ width: `${((index + 1) / config.questions.length) * 100}%` }} /></span></div><em>{index + 1}/{config.questions.length}</em></div>
+      <div className="quiz-header"><button className="icon-button" onClick={onClose}><X /></button><div><strong>{config.title}</strong><span><i style={{ width: `${((index + 1) / config.questions.length) * 100}%` }} /></span></div><em>{config.timeLimitMinutes && !reviewMode ? <b className={remainingSeconds < 300 ? 'timer-warning' : ''}><Clock3 size={13} />{timerText}</b> : `${index + 1}/${config.questions.length}`}</em></div>
       <section className="question-card">
         <div className="question-meta"><span>CHAPTER {question.chapterId}</span><span>{question.difficulty}</span><span>{question.id}</span></div>
         <h1>{question.prompt}</h1>
@@ -450,7 +511,7 @@ function QuizSession({ config, studyState, onClose, onRecord, onBookmark }: { co
         {submitted && <Explanation question={question} answer={answer} correct={correct} bookmarked={Boolean(bookmarked)} onBookmark={() => onBookmark(question.id)} />}
       </section>
       <div className="quiz-footer">
-        {config.mode === 'mock' && index > 0 && <button className="secondary-button compact" onClick={() => { setIndex((v) => v - 1); setSubmitted(false) }}><ChevronLeft /> 前へ</button>}
+        {config.mode === 'mock' && index > 0 && <button className="secondary-button compact" onClick={() => { setIndex((v) => v - 1); setSubmitted(reviewMode) }}><ChevronLeft /> 前へ</button>}
         {!submitted ? <button className="primary-button grow" disabled={!hasAnswer(question, answer)} onClick={config.mode === 'mock' && index === config.questions.length - 1 ? finishMock : submit}>{config.mode === 'mock' ? (index === config.questions.length - 1 ? '採点する' : '次の問題へ') : '回答する'} <ChevronRight /></button> : <button className="primary-button grow" onClick={goNext}>{index === config.questions.length - 1 ? '結果を見る' : '次の問題へ'} <ChevronRight /></button>}
       </div>
     </div>

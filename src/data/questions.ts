@@ -1,412 +1,114 @@
-import type { Question } from '../types'
+import type { Choice, Difficulty, Question } from '../types'
+import { knowledgeByChapter, sourceCatalog, type KnowledgeSeed } from './knowledge'
 
-const checkedAt = '2026-07-19'
 const updatedAt = '2026-07-19'
+const prefixes: Record<number, string> = { 1: 'BAS', 2: 'CLI', 3: 'ENE', 4: 'BIO', 5: 'POL', 6: 'CIR', 7: 'LAW', 8: 'ESG', 9: 'LIF', 10: 'NOW' }
+const defaultSources: Record<number, string> = { 1: 'basics', 2: 'climate', 3: 'energy', 4: 'biodiversity', 5: 'pollution', 6: 'circular', 7: 'law', 8: 'esg', 9: 'ethical', 10: 'ndc2025' }
 
-export const questions: Question[] = [
-  {
-    id: 'BAS-001', chapterId: 1, type: 'fill', difficulty: '基礎',
-    prompt: '「持続可能な開発のための2030アジェンダ」が国連で採択された西暦を入力してください。',
-    acceptedAnswers: ['2015', '2015年'],
-    explanation: '2030アジェンダは2015年9月の国連サミットで採択され、その中核として17のSDGsが掲げられました。',
-    relatedTerms: ['2030アジェンダ', 'SDGs', '国連サミット'],
-    memoryTip: '「15年に採択、30年が期限」とセットで覚えます。',
-    source: { title: '環境省「地球環境の限界と持続可能な開発目標（SDGs）」', url: 'https://www.env.go.jp/policy/hakusyo/h29/html/hj17010101.html', checkedAt }, updatedAt,
-  },
-  {
-    id: 'BAS-002', chapterId: 1, type: 'multiple', difficulty: '基礎',
-    prompt: '持続可能な開発で、バランスよく向上させる3つの側面をすべて選んでください。',
-    choices: [
-      { id: 'a', text: '環境', explanation: '正しい。自然環境は持続可能性の基盤です。' },
-      { id: 'b', text: '経済', explanation: '正しい。経済活動の持続性も統合して考えます。' },
-      { id: 'c', text: '社会', explanation: '正しい。公平性や福祉など社会面も不可欠です。' },
-      { id: 'd', text: '軍事', explanation: '誤り。持続可能な開発の3側面には含まれません。' },
-    ],
-    correctChoiceIds: ['a', 'b', 'c'],
-    explanation: 'SDGsは、環境・経済・社会の3側面を統合的に向上させる考え方を採っています。',
-    relatedTerms: ['統合的向上', 'SDGs', '持続可能性'],
-    memoryTip: '「環・経・社」の3点セットです。',
-    source: { title: '環境省「第五次環境基本計画が目指すもの」', url: 'https://www.env.go.jp/policy/hakusyo/r01/html/hj19010102.html', checkedAt }, updatedAt,
-  },
-  {
-    id: 'BAS-003', chapterId: 1, type: 'trueFalse', difficulty: '標準',
-    prompt: 'SDGsの各目標は互いに独立しているため、1つの目標だけを達成しても他の目標へ影響しない。',
-    choices: [
-      { id: 'true', text: '○', explanation: '誤り。目標同士は相互に関連します。' },
-      { id: 'false', text: '×', explanation: '正しい。ある取組が他の目標へ好影響・悪影響を与える場合があります。' },
-    ],
-    correctChoiceIds: ['false'],
-    explanation: 'SDGsは統合され、不可分とされています。個別目標だけでなく、相互作用を見ながら取り組む必要があります。',
-    relatedTerms: ['不可分', '相乗効果', 'トレードオフ'],
-    memoryTip: 'SDGsは「17個の別々の箱」ではなく、つながった網として捉えます。',
-    source: { title: '環境省「第五次環境基本計画が目指すもの」', url: 'https://www.env.go.jp/policy/hakusyo/r01/html/hj19010102.html', checkedAt }, updatedAt,
-  },
-  {
-    id: 'CLI-001', chapterId: 2, type: 'single', difficulty: '基礎',
-    prompt: '日本が2050年までに目指す「カーボンニュートラル」の説明として最も適切なものはどれですか。',
-    choices: [
-      { id: 'a', text: '温室効果ガスの排出を完全にゼロにすることだけを指す', explanation: '誤り。排出削減に加えて吸収・除去も考慮します。' },
-      { id: 'b', text: '排出量から吸収・除去量を差し引いた合計を実質ゼロにする', explanation: '正しい。排出と吸収・除去の均衡を目指します。' },
-      { id: 'c', text: '二酸化炭素以外の温室効果ガスだけをゼロにする', explanation: '誤り。対象は二酸化炭素を含む温室効果ガスです。' },
-      { id: 'd', text: '海外での排出だけを削減する', explanation: '誤り。国内を含め社会全体の転換が必要です。' },
-    ],
-    correctChoiceIds: ['b'],
-    explanation: 'カーボンニュートラルは、温室効果ガスの排出量と森林などによる吸収・除去量を均衡させ、全体として実質ゼロにすることです。',
-    relatedTerms: ['ネットゼロ', '吸収源', '脱炭素社会'],
-    memoryTip: '「出す量 − 吸う・除く量 ＝ 0」と覚えます。',
-    source: { title: '環境省「カーボンニュートラルとは」', url: 'https://ondankataisaku.env.go.jp/carbon_neutral/about/', checkedAt }, updatedAt,
-  },
-  {
-    id: 'CLI-002', chapterId: 2, type: 'fill', difficulty: '基礎',
-    prompt: '温室効果ガスの排出削減や吸収源の強化によって、気候変動そのものを抑える対策を漢字2文字で答えてください。',
-    acceptedAnswers: ['緩和', '緩和策'],
-    explanation: '気候変動対策は、原因となる排出を減らす「緩和」と、既に起きる影響へ備える「適応」に大別されます。',
-    relatedTerms: ['適応', '排出削減', '吸収源'],
-    memoryTip: '原因をゆるめるのが「緩和」、影響に合わせるのが「適応」です。',
-    source: { title: '気候変動適応情報プラットフォーム「気候変動対策」', url: 'https://adaptation-platform.nies.go.jp/climate_change_adapt/index.html', checkedAt }, updatedAt,
-  },
-  {
-    id: 'CLI-003', chapterId: 2, type: 'single', difficulty: '標準',
-    prompt: 'パリ協定が掲げる世界の平均気温上昇に関する長期目標として適切なものはどれですか。',
-    choices: [
-      { id: 'a', text: '4℃未満に抑える', explanation: '誤り。目標水準はこれより厳しいものです。' },
-      { id: 'b', text: '3℃未満に抑え、2.5℃を目指す', explanation: '誤り。協定の表現と一致しません。' },
-      { id: 'c', text: '2℃より十分低く保ち、1.5℃に抑える努力を追求する', explanation: '正しい。パリ協定の温度目標です。' },
-      { id: 'd', text: '気温目標は定めていない', explanation: '誤り。明確な長期温度目標があります。' },
-    ],
-    correctChoiceIds: ['c'],
-    explanation: 'パリ協定は、産業革命前と比べた気温上昇を2℃より十分低く保ち、1.5℃に抑える努力を追求すると定めています。',
-    relatedTerms: ['パリ協定', '1.5℃目標', 'NDC'],
-    memoryTip: '「2℃より十分低く、努力は1.5℃」です。',
-    source: { title: 'UNFCCC「The Paris Agreement」', url: 'https://unfccc.int/process-and-meetings/the-paris-agreement', checkedAt }, updatedAt,
-  },
-  {
-    id: 'ENE-001', chapterId: 3, type: 'multiple', difficulty: '基礎',
-    prompt: '再生可能エネルギーに分類されるものをすべて選んでください。',
-    choices: [
-      { id: 'a', text: '太陽光', explanation: '正しい。太陽の光を利用する再生可能エネルギーです。' },
-      { id: 'b', text: '風力', explanation: '正しい。風の運動エネルギーを利用します。' },
-      { id: 'c', text: '石炭', explanation: '誤り。有限な化石燃料です。' },
-      { id: 'd', text: '地熱', explanation: '正しい。地球内部の熱を利用します。' },
-    ],
-    correctChoiceIds: ['a', 'b', 'd'],
-    explanation: '太陽光、風力、地熱は自然界で繰り返し得られる再生可能エネルギーです。石炭は化石燃料です。',
-    relatedTerms: ['再生可能エネルギー', '化石燃料', '地熱発電'],
-    memoryTip: '自然の流れや熱から繰り返し得られるかを見分けます。',
-    source: { title: '資源エネルギー庁「再エネとは」', url: 'https://www.enecho.meti.go.jp/category/saving_and_new/saiene/renewable/outline/index.html', checkedAt }, updatedAt,
-  },
-  {
-    id: 'ENE-002', chapterId: 3, type: 'trueFalse', difficulty: '標準',
-    prompt: '太陽光発電や風力発電は、天候などで出力が変動するため、送電網や蓄電などを組み合わせることが重要である。',
-    choices: [
-      { id: 'true', text: '○', explanation: '正しい。変動への対応が安定供給の課題になります。' },
-      { id: 'false', text: '×', explanation: '誤り。太陽光や風力の出力は常に一定ではありません。' },
-    ],
-    correctChoiceIds: ['true'],
-    explanation: '変動性のある再生可能エネルギーを拡大するには、系統増強、蓄電、需要調整などを組み合わせる必要があります。',
-    relatedTerms: ['系統制約', '蓄電池', '需給調整'],
-    memoryTip: '「つくる」だけでなく「運ぶ・ためる・合わせる」までがセットです。',
-    source: { title: '資源エネルギー庁「再生可能エネルギー」', url: 'https://www.enecho.meti.go.jp/about/pamphlet/energy2023/07.html', checkedAt }, updatedAt,
-  },
-  {
-    id: 'ENE-003', chapterId: 3, type: 'matching', difficulty: '標準',
-    prompt: '日本のエネルギー政策「S＋3E」の各要素を対応させてください。',
-    matchPairs: [
-      { left: 'S', right: '安全性' },
-      { left: 'Energy Security', right: '安定供給' },
-      { left: 'Economic Efficiency', right: '経済効率性' },
-      { left: 'Environment', right: '環境適合' },
-    ],
-    explanation: 'S＋3Eは、安全性を大前提に、安定供給、経済効率性、環境適合を同時に追求する考え方です。',
-    relatedTerms: ['S＋3E', 'エネルギー基本計画', '安定供給'],
-    memoryTip: '安全のSを土台に、3つのEを載せるイメージです。',
-    source: { title: '資源エネルギー庁「エネルギー基本計画」', url: 'https://www.enecho.meti.go.jp/category/others/basic_plan/', checkedAt }, updatedAt,
-  },
-  {
-    id: 'BIO-001', chapterId: 4, type: 'single', difficulty: '基礎',
-    prompt: '生物多様性の3つのレベルに含まれないものはどれですか。',
-    choices: [
-      { id: 'a', text: '生態系の多様性', explanation: '含まれます。森林、湿原、サンゴ礁など多様な生態系を指します。' },
-      { id: 'b', text: '種の多様性', explanation: '含まれます。多様な動植物や微生物がいることです。' },
-      { id: 'c', text: '遺伝子の多様性', explanation: '含まれます。同じ種の中にも多様な個性があります。' },
-      { id: 'd', text: '企業規模の多様性', explanation: '正解。生物多様性の3レベルには含まれません。' },
-    ],
-    correctChoiceIds: ['d'],
-    explanation: '生物多様性は、生態系・種・遺伝子の3つのレベルで捉えます。',
-    relatedTerms: ['生態系', '種', '遺伝子'],
-    memoryTip: '大きい順に「生態系 → 種 → 遺伝子」です。',
-    source: { title: '生物多様性センター「生物多様性って何？」', url: 'https://www.biodic.go.jp/biodiversity/', checkedAt }, updatedAt,
-  },
-  {
-    id: 'BIO-002', chapterId: 4, type: 'matching', difficulty: '基礎',
-    prompt: '生物多様性のレベルと例を対応させてください。',
-    matchPairs: [
-      { left: '生態系の多様性', right: '森林・湿原・干潟など様々な自然がある' },
-      { left: '種の多様性', right: '動物・植物・微生物など様々な生きものがいる' },
-      { left: '遺伝子の多様性', right: '同じ種でも模様や性質に違いがある' },
-    ],
-    explanation: '生物多様性は自然の場所、生きものの種類、同じ種の中の違いという3段階で整理できます。',
-    relatedTerms: ['遺伝的多様性', '生息地', '生態系'],
-    memoryTip: '「場所・種類・個性」と言い換えると整理しやすくなります。',
-    source: { title: '生物多様性センター「生物多様性って何？」', url: 'https://www.biodic.go.jp/biodiversity/', checkedAt }, updatedAt,
-  },
-  {
-    id: 'BIO-003', chapterId: 4, type: 'trueFalse', difficulty: '標準',
-    prompt: '生態系には生物だけでなく、水・土・空気などの非生物的な環境も含まれる。',
-    choices: [
-      { id: 'true', text: '○', explanation: '正しい。生物群集と非生物的環境が相互作用する単位です。' },
-      { id: 'false', text: '×', explanation: '誤り。生態系は生きものだけを指す言葉ではありません。' },
-    ],
-    correctChoiceIds: ['true'],
-    explanation: '生態系は、植物・動物・微生物の群集と、それを取り巻く非生物的環境が相互作用する機能的な単位です。',
-    relatedTerms: ['生物群集', '非生物的環境', '相互作用'],
-    memoryTip: '生態系は「生きもの＋舞台＋関係」です。',
-    source: { title: '生物多様性センター「生物多様性条約」', url: 'https://www.biodic.go.jp/biolaw/jo_hon.html', checkedAt }, updatedAt,
-  },
-  {
-    id: 'POL-001', chapterId: 5, type: 'multiple', difficulty: '基礎',
-    prompt: '環境基本法で示される「典型7公害」に含まれるものをすべて選んでください。',
-    choices: [
-      { id: 'a', text: '大気汚染', explanation: '正しい。典型7公害の1つです。' },
-      { id: 'b', text: '騒音', explanation: '正しい。典型7公害の1つです。' },
-      { id: 'c', text: '悪臭', explanation: '正しい。典型7公害の1つです。' },
-      { id: 'd', text: '日照不足', explanation: '誤り。典型7公害には列挙されていません。' },
-    ],
-    correctChoiceIds: ['a', 'b', 'c'],
-    explanation: '典型7公害は、大気汚染、水質汚濁、土壌汚染、騒音、振動、地盤沈下、悪臭です。',
-    relatedTerms: ['環境基本法', '典型7公害', '生活環境'],
-    memoryTip: '「大・水・土、騒・振・沈・臭」と並べて覚えます。',
-    source: { title: '環境再生保全機構「公害とは」', url: 'https://www.erca.go.jp/fukakin/y_tebiki/situgi/q01.html', checkedAt }, updatedAt,
-  },
-  {
-    id: 'POL-002', chapterId: 5, type: 'single', difficulty: '基礎',
-    prompt: '次のうち「典型7公害」に含まれないものはどれですか。',
-    choices: [
-      { id: 'a', text: '地盤沈下', explanation: '含まれます。地下水の過剰採取などにより生じます。' },
-      { id: 'b', text: '振動', explanation: '含まれます。工場や交通などが原因となります。' },
-      { id: 'c', text: '悪臭', explanation: '含まれます。生活環境へ不快感を与える公害です。' },
-      { id: 'd', text: '光害', explanation: '正解。重要な環境問題ですが、典型7公害の列挙には含まれません。' },
-    ],
-    correctChoiceIds: ['d'],
-    explanation: '光害は環境問題として扱われますが、環境基本法が定義する典型7公害には含まれません。',
-    relatedTerms: ['光害', '典型7公害', '生活環境'],
-    memoryTip: '7つは「大水土・騒振沈臭」。光は入っていません。',
-    source: { title: '環境再生保全機構「公害とは」', url: 'https://www.erca.go.jp/fukakin/y_tebiki/situgi/q01.html', checkedAt }, updatedAt,
-  },
-  {
-    id: 'POL-003', chapterId: 5, type: 'trueFalse', difficulty: '標準',
-    prompt: '環境基準は、人の健康を保護し生活環境を保全するうえで維持されることが望ましい基準である。',
-    choices: [
-      { id: 'true', text: '○', explanation: '正しい。行政上の政策目標として設定されます。' },
-      { id: 'false', text: '×', explanation: '誤り。これは環境基準の基本的な性格を表しています。' },
-    ],
-    correctChoiceIds: ['true'],
-    explanation: '環境基準は環境の状態に関する望ましい水準です。工場などへ直接適用する排出基準とは区別します。',
-    relatedTerms: ['環境基準', '排出基準', '環境基本法'],
-    memoryTip: '環境基準は「環境の目標」、排出基準は「発生源の規制」です。',
-    source: { title: '環境省「環境基準」', url: 'https://www.env.go.jp/kijun/', checkedAt }, updatedAt,
-  },
-  {
-    id: 'CIR-001', chapterId: 6, type: 'single', difficulty: '基礎',
-    prompt: '3Rの取組を優先度の高い順に並べたものはどれですか。',
-    choices: [
-      { id: 'a', text: 'リサイクル → リユース → リデュース', explanation: '誤り。再生利用より発生抑制が優先です。' },
-      { id: 'b', text: 'リデュース → リユース → リサイクル', explanation: '正しい。まず発生を減らし、次に再使用します。' },
-      { id: 'c', text: 'リユース → リサイクル → リデュース', explanation: '誤り。最優先はリデュースです。' },
-      { id: 'd', text: '3つに優先順位はない', explanation: '誤り。法律上も優先順位が示されています。' },
-    ],
-    correctChoiceIds: ['b'],
-    explanation: 'ごみや資源消費そのものを減らすリデュース、繰り返し使うリユース、資源として再生するリサイクルの順です。',
-    relatedTerms: ['3R', '発生抑制', '再使用', '再生利用'],
-    memoryTip: '「出さない → そのまま使う → 作り直す」の順です。',
-    source: { title: '環境省「3R徹底宣言」', url: 'https://www.env.go.jp/guide/info/ecojin/feature1/20221116.html', checkedAt }, updatedAt,
-  },
-  {
-    id: 'CIR-002', chapterId: 6, type: 'matching', difficulty: '基礎',
-    prompt: '3Rの用語と行動を対応させてください。',
-    matchPairs: [
-      { left: 'リデュース', right: '詰め替え製品を選び、ごみの発生を減らす' },
-      { left: 'リユース', right: '使用済みのびんを洗って再び使う' },
-      { left: 'リサイクル', right: '古紙を原料に新しい紙を作る' },
-    ],
-    explanation: 'リデュースは発生抑制、リユースは再使用、リサイクルは再生利用です。',
-    relatedTerms: ['発生抑制', '再使用', '再生利用'],
-    memoryTip: 'Reduce＝減らす、Reuse＝再び使う、Recycle＝循環させる。',
-    source: { title: '環境省「3R徹底宣言」', url: 'https://www.env.go.jp/guide/info/ecojin/feature1/20221116.html', checkedAt }, updatedAt,
-  },
-  {
-    id: 'CIR-003', chapterId: 6, type: 'single', difficulty: '標準',
-    prompt: '循環型社会形成推進基本法が示す処理の優先順位で、再生利用の次に位置するものはどれですか。',
-    choices: [
-      { id: 'a', text: '熱回収', explanation: '正しい。再生利用が難しい場合などにエネルギーを回収します。' },
-      { id: 'b', text: '不法投棄', explanation: '誤り。適正処分に反します。' },
-      { id: 'c', text: '発生抑制', explanation: '誤り。発生抑制は最優先です。' },
-      { id: 'd', text: '再使用', explanation: '誤り。再使用は再生利用より前です。' },
-    ],
-    correctChoiceIds: ['a'],
-    explanation: '法定の優先順位は、発生抑制、再使用、再生利用、熱回収、適正処分です。',
-    relatedTerms: ['熱回収', '適正処分', '循環型社会形成推進基本法'],
-    memoryTip: '3Rの後に「熱」、最後に「適正処分」です。',
-    source: { title: '環境省「循環型社会形成推進基本法の概要」', url: 'https://www.env.go.jp/recycle/circul/kihonho/gaiyo.html', checkedAt }, updatedAt,
-  },
-  {
-    id: 'LAW-001', chapterId: 7, type: 'fill', difficulty: '基礎',
-    prompt: '日本の環境政策の基本理念や施策の基本事項を定める法律名を答えてください。',
-    acceptedAnswers: ['環境基本法'],
-    explanation: '環境基本法は、環境の保全について基本理念を定め、国・地方公共団体・事業者・国民の責務などを示す基本法です。',
-    relatedTerms: ['基本理念', '国の責務', '事業者の責務'],
-    memoryTip: '環境政策全体の土台なので、そのまま「環境基本法」です。',
-    source: { title: 'e-Gov法令検索「環境基本法」', url: 'https://elaws.e-gov.go.jp/document?lawid=405AC0000000091', checkedAt }, updatedAt,
-  },
-  {
-    id: 'LAW-002', chapterId: 7, type: 'single', difficulty: '標準',
-    prompt: 'パリ協定で各国が作成・提出する温室効果ガス削減目標などを表す略称はどれですか。',
-    choices: [
-      { id: 'a', text: 'NDC', explanation: '正しい。Nationally Determined Contributionの略です。' },
-      { id: 'b', text: 'GDP', explanation: '誤り。国内総生産を表す略称です。' },
-      { id: 'c', text: 'ODA', explanation: '誤り。政府開発援助を表します。' },
-      { id: 'd', text: 'LCA', explanation: '誤り。ライフサイクルアセスメントを表します。' },
-    ],
-    correctChoiceIds: ['a'],
-    explanation: 'NDCは「国が決定する貢献」で、各国が自らの気候変動対策目標を作成・提出します。',
-    relatedTerms: ['NDC', 'パリ協定', '5年サイクル'],
-    memoryTip: 'Nationally（国が）Determined（決める）Contribution（貢献）です。',
-    source: { title: 'UNFCCC「Nationally Determined Contributions」', url: 'https://unfccc.int/process-and-meetings/the-paris-agreement/nationally-determined-contributions-ndcs', checkedAt }, updatedAt,
-  },
-  {
-    id: 'LAW-003', chapterId: 7, type: 'trueFalse', difficulty: '標準',
-    prompt: '環境影響評価は、大規模事業を実施した後にだけ環境への影響を調べる制度である。',
-    choices: [
-      { id: 'true', text: '○', explanation: '誤り。事業の実施前に調査・予測・評価し、環境配慮へ反映します。' },
-      { id: 'false', text: '×', explanation: '正しい。事前の環境配慮を促す制度です。' },
-    ],
-    correctChoiceIds: ['false'],
-    explanation: '環境影響評価（環境アセスメント）は、事業の実施前に影響を調査・予測・評価し、意見を聴いて計画へ反映する仕組みです。',
-    relatedTerms: ['環境アセスメント', '事前評価', '住民意見'],
-    memoryTip: '「建ててから」ではなく「建てる前」に考えます。',
-    source: { title: '環境省「環境影響評価情報支援ネットワーク」', url: 'https://assess.env.go.jp/', checkedAt }, updatedAt,
-  },
-  {
-    id: 'ESG-001', chapterId: 8, type: 'single', difficulty: '基礎',
-    prompt: 'ESGの「G」が表すものはどれですか。',
-    choices: [
-      { id: 'a', text: 'Growth（成長）', explanation: '誤り。ESGのGではありません。' },
-      { id: 'b', text: 'Governance（企業統治）', explanation: '正しい。経営の監督や透明性などを含みます。' },
-      { id: 'c', text: 'Global（世界）', explanation: '誤り。ESGのGではありません。' },
-      { id: 'd', text: 'Green（緑）', explanation: '誤り。環境はEで表します。' },
-    ],
-    correctChoiceIds: ['b'],
-    explanation: 'ESGはEnvironment（環境）、Social（社会）、Governance（企業統治）の頭文字です。',
-    relatedTerms: ['ESG投資', '企業統治', 'サステナビリティ'],
-    memoryTip: 'E＝環境、S＝社会、G＝会社を正しく治める仕組みです。',
-    source: { title: '環境省「持続可能性を巡る課題を考慮した投資に関する検討会」', url: 'https://www.env.go.jp/policy/esg/index.html', checkedAt }, updatedAt,
-  },
-  {
-    id: 'ESG-002', chapterId: 8, type: 'multiple', difficulty: '応用',
-    prompt: '有価証券報告書のサステナビリティ情報の記載欄について、対象企業が共通して開示する枠組みとして示された項目をすべて選んでください。',
-    choices: [
-      { id: 'a', text: 'ガバナンス', explanation: '正しい。全企業が開示する枠組みです。' },
-      { id: 'b', text: 'リスク管理', explanation: '正しい。全企業が開示する枠組みです。' },
-      { id: 'c', text: '戦略', explanation: '重要性を判断して開示する項目です。常に一律必須という整理ではありません。' },
-      { id: 'd', text: '指標と目標', explanation: '重要性を判断して開示する項目です。常に一律必須という整理ではありません。' },
-    ],
-    correctChoiceIds: ['a', 'b'],
-    explanation: 'サステナビリティ情報の記載欄では、対象企業はガバナンスとリスク管理を開示し、戦略と指標・目標は重要性を判断して開示します。',
-    relatedTerms: ['サステナビリティ開示', 'ガバナンス', 'リスク管理'],
-    memoryTip: '土台の「統治とリスク」は全社、内容の「戦略と指標」は重要性判断です。',
-    source: { title: '金融庁「企業内容等の開示に関する内閣府令等改正の解説」', url: 'https://www.fsa.go.jp/policy/kaiji/sustainability02.pdf', checkedAt }, updatedAt,
-  },
-  {
-    id: 'ESG-003', chapterId: 8, type: 'trueFalse', difficulty: '標準',
-    prompt: '環境マネジメントシステムは、一度目標を決めれば終了ではなく、継続的な改善を行う考え方である。',
-    choices: [
-      { id: 'true', text: '○', explanation: '正しい。計画、実施、評価、改善を繰り返します。' },
-      { id: 'false', text: '×', explanation: '誤り。継続的改善が重要です。' },
-    ],
-    correctChoiceIds: ['true'],
-    explanation: 'ISO 14001では、環境マネジメントシステムを確立・実施・維持し、その有効性を継続的に改善することが求められます。',
-    relatedTerms: ['ISO 14001', '環境マネジメントシステム', '継続的改善'],
-    memoryTip: '環境経営は「決めて終わり」ではなく「回して改善」です。',
-    source: { title: '日本産業標準調査会「ISO 14001について」', url: 'https://www.jisc.go.jp/mss/ems-14001.html', checkedAt }, updatedAt,
-  },
-  {
-    id: 'LIF-001', chapterId: 9, type: 'single', difficulty: '基礎',
-    prompt: '「エシカル消費」の説明として最も適切なものはどれですか。',
-    choices: [
-      { id: 'a', text: '価格の安さだけで商品を選ぶこと', explanation: '誤り。価格だけでなく社会や環境への影響も考えます。' },
-      { id: 'b', text: '人・社会・地域・環境に配慮した消費行動', explanation: '正しい。消費者庁が示す説明です。' },
-      { id: 'c', text: '海外製品を一切買わないこと', explanation: '誤り。産地だけで一律に決まる概念ではありません。' },
-      { id: 'd', text: '商品を買わず自給自足すること', explanation: '誤り。日々の買い物を通じた配慮も含みます。' },
-    ],
-    correctChoiceIds: ['b'],
-    explanation: 'エシカル消費は、買い物を通じて人・社会・地域・環境へ配慮し、社会的課題の解決を考える消費行動です。',
-    relatedTerms: ['倫理的消費', 'SDG 12', 'フェアトレード'],
-    memoryTip: '値札だけでなく「その商品の向こう側」まで見る消費です。',
-    source: { title: '消費者庁「エシカル消費とは」', url: 'https://www.ethical.caa.go.jp/ethical-consumption.html', checkedAt }, updatedAt,
-  },
-  {
-    id: 'LIF-002', chapterId: 9, type: 'trueFalse', difficulty: '標準',
-    prompt: '地域循環共生圏は、都市と農山漁村がそれぞれの強みを生かし、補完し支え合う考え方である。',
-    choices: [
-      { id: 'true', text: '○', explanation: '正しい。地域資源を生かしつつ、地域同士が支え合います。' },
-      { id: 'false', text: '×', explanation: '誤り。地域を完全に孤立させる考え方ではありません。' },
-    ],
-    correctChoiceIds: ['true'],
-    explanation: '地域循環共生圏は、地域が資源を生かして自立・分散型社会を形成しつつ、都市と農山漁村などが補完し支え合う考え方です。',
-    relatedTerms: ['自立・分散型社会', '地域資源', '都市と農山漁村'],
-    memoryTip: '「地域で回す」だけでなく「地域同士で支え合う」まで覚えます。',
-    source: { title: '環境省「第五次環境基本計画が目指すもの」', url: 'https://www.env.go.jp/policy/hakusyo/r01/html/hj19010102.html', checkedAt }, updatedAt,
-  },
-  {
-    id: 'LIF-003', chapterId: 9, type: 'multiple', difficulty: '基礎',
-    prompt: '資源消費や環境負荷を抑える暮らし方として適切なものをすべて選んでください。',
-    choices: [
-      { id: 'a', text: '必要な量を考えて食品を購入する', explanation: '正しい。食品ロスの削減につながります。' },
-      { id: 'b', text: '修理できる製品を長く使う', explanation: '正しい。製品寿命を延ばし資源消費を抑えます。' },
-      { id: 'c', text: '使える物も短期間で捨てる', explanation: '誤り。廃棄物と資源消費を増やします。' },
-      { id: 'd', text: '詰め替え製品を選ぶ', explanation: '正しい。容器ごみの発生抑制につながります。' },
-    ],
-    correctChoiceIds: ['a', 'b', 'd'],
-    explanation: '必要量の購入、長期使用、詰め替えの利用は、廃棄物の発生と資源投入を減らす行動です。',
-    relatedTerms: ['食品ロス', 'リデュース', '長寿命化'],
-    memoryTip: '「買いすぎない・長く使う・ごみを出さない」です。',
-    source: { title: '環境省「3R徹底宣言」', url: 'https://www.env.go.jp/guide/info/ecojin/feature1/20221116.html', checkedAt }, updatedAt,
-  },
-  {
-    id: 'NOW-001', chapterId: 10, type: 'single', difficulty: '時事',
-    prompt: '2025年に決定された日本の新しいNDCで、2035年度の温室効果ガス削減目標は2013年度比で何％ですか。',
-    choices: [
-      { id: 'a', text: '46％', explanation: '誤り。46％は2030年度目標です。' },
-      { id: 'b', text: '50％', explanation: '誤り。新NDCの2035年度目標ではありません。' },
-      { id: 'c', text: '60％', explanation: '正しい。2035年度に2013年度比60％削減を目指します。' },
-      { id: 'd', text: '73％', explanation: '誤り。73％は2040年度目標です。' },
-    ],
-    correctChoiceIds: ['c'],
-    explanation: '日本は直線的な削減経路として、2035年度60％削減、2040年度73％削減を掲げています（いずれも2013年度比）。',
-    relatedTerms: ['NDC', '2035年度目標', '2050年ネットゼロ'],
-    memoryTip: '「35年60％、40年73％」を組で覚えます。',
-    source: { title: '環境省「地球温暖化対策計画」', url: 'https://www.env.go.jp/earth/ondanka/keikaku/250218.html', checkedAt }, updatedAt,
-  },
-  {
-    id: 'NOW-002', chapterId: 10, type: 'fill', difficulty: '時事',
-    prompt: '2025年の国連気候変動会議COP30が開催されたブラジルの都市名をカタカナで答えてください。',
-    acceptedAnswers: ['ベレン', 'ベレム', 'Belém', 'Belem'],
-    explanation: 'COP30は2025年11月、ブラジルのベレン（Belém）で開催されました。',
-    relatedTerms: ['COP30', 'ブラジル', 'UNFCCC'],
-    memoryTip: 'COP30はアマゾン地域の玄関口「ベレン」です。',
-    source: { title: 'UNFCCC「About COP30」', url: 'https://unfccc.int/cop30/about-cop30', checkedAt }, updatedAt,
-  },
-  {
-    id: 'NOW-003', chapterId: 10, type: 'trueFalse', difficulty: '時事',
-    prompt: '日本の2025年NDCには、2040年度に温室効果ガスを2013年度比73％削減する目標が含まれる。',
-    choices: [
-      { id: 'true', text: '○', explanation: '正しい。2035年度60％、2040年度73％の削減目標です。' },
-      { id: 'false', text: '×', explanation: '誤り。73％削減は2040年度目標として示されています。' },
-    ],
-    correctChoiceIds: ['true'],
-    explanation: '日本の新NDCは、2050年ネットゼロへ向け、2035年度60％削減と2040年度73％削減を掲げています。',
-    relatedTerms: ['NDC', '2040年度目標', 'ネットゼロ'],
-    memoryTip: '2035→60、2040→73と階段状に覚えます。',
-    source: { title: '環境省「地球温暖化対策計画」', url: 'https://www.env.go.jp/earth/ondanka/keikaku/250218.html', checkedAt }, updatedAt,
-  },
-]
+const difficultyFor = (chapterId: number, variant: number, seedIndex: number): Difficulty => {
+  if (chapterId === 10) return '時事'
+  const levels: Difficulty[] = ['基礎', '標準', '基礎', '応用', '標準']
+  if (seedIndex > Math.floor((knowledgeByChapter[chapterId].length * 2) / 3) && variant > 1) return '応用'
+  return levels[variant]
+}
+
+const sourceFor = (chapterId: number, item: KnowledgeSeed) => sourceCatalog[item.sourceKey ?? defaultSources[chapterId]]
+const choice = (id: string, text: string, explanation: string): Choice => ({ id, text, explanation })
+
+function buildSeedQuestions(chapterId: number, item: KnowledgeSeed, seedIndex: number, chapterSeeds: KnowledgeSeed[]): Question[] {
+  const get = (offset: number) => chapterSeeds[(seedIndex + offset) % chapterSeeds.length]
+  const next = get(1)
+  const third = get(2)
+  const fourth = get(3)
+  const fifth = get(4)
+  const base = seedIndex * 5
+  const makeId = (variant: number) => `${prefixes[chapterId]}-${String(base + variant + 1).padStart(3, '0')}`
+  const source = sourceFor(chapterId, item)
+  const common = {
+    chapterId,
+    relatedTerms: [item.term, next.term, third.term],
+    memoryTip: item.tip,
+    source,
+    updatedAt,
+  }
+
+  const termChoices = [item, next, third, fourth].map((candidate, index) => choice(
+    String.fromCharCode(97 + index),
+    candidate.term,
+    candidate.term === item.term ? `正しい。「${item.term}」は、${item.definition}を指します。` : `誤り。「${candidate.term}」は、${candidate.definition}を指します。`,
+  ))
+
+  const trueStatement = seedIndex % 2 === 0
+  const statementTerm = trueStatement ? item.term : next.term
+  const trueFalseChoices = [
+    choice('true', '○', trueStatement ? `正しい。${item.term}の説明と一致します。` : `誤り。この説明は${item.term}であり、${next.term}ではありません。`),
+    choice('false', '×', trueStatement ? `誤り。${item.term}の説明として正しい内容です。` : `正しい。説明と用語が一致していません。`),
+  ]
+
+  const pairChoices = [
+    choice('a', `${item.term}：${item.definition}`, '正しい組合せです。'),
+    choice('b', `${next.term}：${next.definition}`, '正しい組合せです。'),
+    choice('c', `${third.term}：${fourth.definition}`, `誤り。${third.term}は「${third.definition}」です。`),
+    choice('d', `${fourth.term}：${fifth.definition}`, `誤り。${fourth.term}は「${fourth.definition}」です。`),
+  ]
+
+  return [
+    {
+      ...common,
+      id: makeId(0),
+      type: 'single',
+      difficulty: difficultyFor(chapterId, 0, seedIndex),
+      prompt: `次の説明に最も当てはまる用語はどれですか。「${item.definition}」`,
+      choices: termChoices,
+      correctChoiceIds: ['a'],
+      explanation: `正解は「${item.term}」です。${item.definition}を意味します。似た用語も、対象・目的・手段の違いで整理しましょう。`,
+    },
+    {
+      ...common,
+      id: makeId(1),
+      type: 'trueFalse',
+      difficulty: difficultyFor(chapterId, 1, seedIndex),
+      prompt: `「${statementTerm}」とは、${item.definition}を指す。`,
+      choices: trueFalseChoices,
+      correctChoiceIds: [trueStatement ? 'true' : 'false'],
+      explanation: `${item.term}とは、${item.definition}を指します。${trueStatement ? '問題文は用語と説明が一致しています。' : `問題文の説明に当てはまるのは「${item.term}」であり、「${next.term}」ではありません。`}`,
+    },
+    {
+      ...common,
+      id: makeId(2),
+      type: 'fill',
+      difficulty: difficultyFor(chapterId, 2, seedIndex),
+      prompt: `「${item.definition}」に当てはまる用語を入力してください。`,
+      acceptedAnswers: [item.term, item.term.replace(/[・＋]/g, '')],
+      explanation: `答えは「${item.term}」です。定義は「${item.definition}」です。`,
+    },
+    {
+      ...common,
+      id: makeId(3),
+      type: 'multiple',
+      difficulty: difficultyFor(chapterId, 3, seedIndex),
+      prompt: `用語と説明の組合せとして正しいものをすべて選んでください。テーマは「${item.term}」です。`,
+      choices: pairChoices,
+      correctChoiceIds: ['a', 'b'],
+      explanation: `「${item.term}」と「${next.term}」の組合せが正解です。誤りの選択肢は、別の用語の説明が入れ替わっています。`,
+    },
+    {
+      ...common,
+      id: makeId(4),
+      type: 'matching',
+      difficulty: difficultyFor(chapterId, 4, seedIndex),
+      prompt: `「${item.term}」と関連する3つの用語を、それぞれの説明に対応させてください。`,
+      matchPairs: [item, next, third].map((candidate) => ({ left: candidate.term, right: candidate.definition })),
+      explanation: `各用語の対象を整理すると、${item.term}・${next.term}・${third.term}を区別できます。`,
+    },
+  ]
+}
+
+export const questions: Question[] = Object.entries(knowledgeByChapter).flatMap(([chapter, seeds]) => {
+  const chapterId = Number(chapter)
+  return seeds.flatMap((item, index) => buildSeedQuestions(chapterId, item, index, seeds))
+})
+
+export const questionCountByChapter = Object.fromEntries(
+  Object.keys(knowledgeByChapter).map((chapter) => [Number(chapter), questions.filter((question) => question.chapterId === Number(chapter)).length]),
+)

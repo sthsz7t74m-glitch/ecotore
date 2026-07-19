@@ -1,4 +1,4 @@
-export type Page = 'home' | 'learn' | 'practice' | 'review' | 'stats' | 'settings'
+export type Page = 'home' | 'learn' | 'practice' | 'mock' | 'review' | 'stats' | 'settings' | 'admin'
 export type Difficulty = '基礎' | '標準' | '応用' | '時事'
 export type QuestionType = 'single' | 'multiple' | 'trueFalse' | 'fill' | 'matching'
 
@@ -10,6 +10,8 @@ export interface Chapter {
   color: string
   summary: string
   keyPoints: string[]
+  lessonSections: { title: string; body: string }[]
+  diagram: { label: string; detail: string }[]
 }
 
 export interface Choice {
